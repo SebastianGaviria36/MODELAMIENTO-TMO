@@ -1,4 +1,4 @@
-# MODELAMIENTO-TMO
+# MODELAMIENTO-TMO & AOS
 
 ¡Bienvenido/a! En este repositorio podrás encontrar toda la información relacionada al análisis estadístico realizado respecto a la terapia miofuncional para pacientes con apnea del sueño. 
 
