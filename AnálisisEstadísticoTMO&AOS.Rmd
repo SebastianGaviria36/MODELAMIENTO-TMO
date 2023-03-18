@@ -1,0 +1,176 @@
+---
+title: "Análisis-TMO&AOS"
+author: "Sebastian Gaviria Sánchez"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(knitr)
+library(ggfortify)
+library(plotly)
+library(survival)
+```
+
+```{r}
+#cargando la base de datos
+datos <- read_excel("BD 6 MARZO 2023.xlsx")
+
+#completando fecha de inicio
+for (i in 1:nrow(datos)){
+  if(is.na(datos$inicio[i])){
+    datos$inicio[i] <- datos$inicio[i-1]
+  }
+}
+
+#arreglando fecha fin
+datos$fin <- substr(datos$fin,1,10)
+datos$fin <- as.POSIXlt.character(datos$fin, tz = "UTC", format = "%d/%m/%Y")
+
+#Quitando los cancelados
+datos <- datos %>% filter(estado == "Completado")
+
+#Calculando días
+datos$dias <- difftime(datos$fin,
+                       datos$inicio, 
+                       units = "days") %>%
+  as.numeric()
+```
+
+## Estadísticos de resumen
+
+Se tiene gran interés en responder los siguientes cuestionamientos:
+
+-   ¿Cuánto se demora en promedio un paciente para completar cada nivel?
+-   ¿Cuánto se demora en promedio un paciente para terminar el tratamiento?
+
+Para dar respuesta a la primera pregunta se muestra la siguiente tabla
+
+```{r}
+df_dias_promedio <- datos %>%
+                    group_by(nivel) %>%
+                    summarise_at(vars(dias), list(días_promedio = mean))
+
+kable(df_dias_promedio, caption = "Días promedio por nivel del tratamiento", align = "c",
+      booktab = T, escape = F, col.names = c("Nivel", "Días promedio"), digits = 1)
+```
+
+Con esta última se tienen las siguientes conclusiones:
+
+-   En promedio, los pacientes bajo el tratamiento tardan aproximadamente 21 días en completar el nivel 1 del mismo.
+
+-   Así mismo, para el nivel 2 de dicho tratamiento, los pacientes tardan aproximadamente 15 días para completarlo en promedio.
+
+-   Similar al nivel 1, en el nivel 3 los pacientes bajo el tratamiento tardan en promedio 20 días en completar el mismo.
+
+-   Para el nivel 4, se puede decir que los pacientes en promedio se tardan 17 días en llegar al final de este nivel.
+
+-   De manera análoga al nivel 3, en el nivel 5 los pacientes también tardan en promedio 20 días aproximadamente.
+
+-   Finalmente y a diferencia de los demás niveles, en el nivel 6 los pacientes suelen tardar más en promedio, con casi 28 días para terminar este nivel.
+
+Ahora, interesa conocer cuánto se demora un paciente en promedio para finalizar el tratamiento en su totalidad. Para esta causa se muestra el siguiente resumen.
+
+```{r}
+Datosdepurados <- read_excel("Datosdepurados.xlsx")
+Datosdepurados$dias <- difftime(Datosdepurados$`Fecha Fin`,
+                                Datosdepurados$`Fecha Incio`, 
+                                units = "days") %>%
+  as.numeric() %>% round(2)
+resultsumm <- Datosdepurados %>% filter(!is.na(`TMO NIVEL 6`)) %>% 
+  select(dias) %>% summary()
+
+df_summary_tratcomp <- data.frame(Est = c('Mínimo','Percentil 25','Mediana',
+                                          'Promedio','Percentil 75','Máximo'),
+                                  Freq = c(86.0,124.2,150.5,157.8,181.0,328.0))
+
+kable(df_summary_tratcomp, caption = "Días para terminar el tratamiento", 
+      align = "c", booktab = T, escape = F, 
+      col.names = c("Estadístico", "Resultado"), digits = 1)
+
+```
+
+Con este resultado se llega a las siguientes conclusiones:
+
+-   El paciente que menos se demoró en terminar el tratamiento lo hizo en 86 días.
+
+-   Según el percentil 25, se afirma que el 25% de los pacientes terminan en menos de 125 días.
+
+-   Similarmente, según la mediana la mitad de los pacientes termina el tratamiento antes de los 150 días.
+
+-   En promedio, los pacientes tardan 158 días en terminar el tratamiento.
+
+-   Según el percentil 75, el 75% de los pacientes tarda menos de 181 días en terminar el tratamiento.
+
+-   Finalmente, el paciente que más tardó en terminar su tratamiento lo hizo en 328 días.
+
+## Curva de supervivencia
+
+En aras de determinar el comportamiento de deserción a lo largo del tratamiento, se desea estimar la curva de supervivencia para observar la probabilidad de que un paciente continúe a partir de un día determinado en el tratamiento o de manera análoga, qué porción de la cohorte inicial va a continuar bajo tratamiento en un momento específico del mismo.
+
+Así pues, se estima la curva de supervivencia $S(t) = P(T > t)$ usando el estimado de Kaplan-Meier. El resultado se ilustra a continuación:
+
+```{r, warning=F}
+#definiendo evento para km
+Datosdepurados$evento <- ifelse(Datosdepurados$Status == "Evento", 1, 0)
+
+#Estimando S(t) via kaplan-meier
+KM_fit <- survfit(Surv(dias, evento) ~ 1, data = Datosdepurados)
+
+#graficando S(t)
+
+p <- autoplot(KM_fit, type="fill",surv.alpha=0.9, 
+         surv.size=1.5,
+         conf.int.alpha=0,
+         censor.size=0,
+         surv.colour="#666666")+ 
+  labs(x = "\n Tiempo en el tratamiento (Días) ", 
+       y = "Probabilidad de continuar \n", 
+       title = "Curva de supervivencia estimada:\n TMO para pacientes con apnea del sueño",
+       caption = "Usando el estimador de Kaplan-Meier") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) +
+  geom_vline(xintercept = c(21,36,57,74,94,121), linetype="dashed", 
+             color = "black", size=0.5) +
+  xlim(0,125) +
+  #ylim(50,100) +
+  geom_label(aes(x=21, y = 1, label = "Nivel 1")) +
+  geom_label(aes(x=36, y = 1, label = "Nivel 2")) +
+  geom_label(aes(x=57, y = 1, label = "Nivel 3")) +
+  geom_label(aes(x=74, y = 1, label = "Nivel 4")) +
+  geom_label(aes(x=94, y = 1, label = "Nivel 5")) +
+  geom_label(aes(x=121, y = 1, label = "Nivel 6")) +
+  geom_label(aes(x=20, y = 0.4,
+  label = "Probabilidad de que continúe\n a partir del nivel 1 es 84.2%")) +
+  geom_segment(aes(x=0, xend=21,y=0.8421349,yend=0.8421349),
+               linetype="dashed") +
+  geom_segment(aes(x=21,xend=10,y=0.8421349, yend=0.5),
+               arrow = arrow(length = unit(0.3,"cm")), size = 1, col = "red")
+
+p
+```
+
+En este gráfico se considera que un paciente se va a demorar por nivel lo obtenido en la sección de estadísticos de resúmen, es decir, para el nivel 1 del tratamiento 21 días, para el nivel 2 15 días, para el nivel 3 20 días, para el nivel 4 17 días, para el nivel 5 20 días y para el nivel 6 28 días.
+
+Así entonces, las líneas verticales punteadas demarcan el día esperado para que un paciente termine el nivel correspondiente que se señala en la parte superior.
+
+Dicho esto, se tienen las siguientes conclusiones de interés:
+
+-   Un paciente que termine el nivel 1 del tratamiento tendrá una probabilidad del 84.2% de continuar ea nivel 2 o de manera análoga, se espera que el 84.2% de los pacientes que comienzan el tratamiento continúen al nivel 2.
+
+-   Similarmente, un paciente que termine el nivel 2 del tratamiento tendrá una probabilidad del 68.2% de continuar al nivel 3 o de manera análoga, se espera que el 68.2% de los pacientes que comienzan el tratamiento continúen al nivel 3.
+
+-   De igual forma, un paciente que termine el nivel 3 del tratamiento tendrá una probabilidad del 50.2% de continuar al nivel 4 o de manera análoga, se espera que el 50.2% de los pacientes que comienzan el tratamiento continúen al nivel 4.
+
+-   Así mismo, un paciente que termine el nivel 4 del tratamiento tendrá una probabilidad del 41.2% de continuar al nivel 5 o de manera análoga, se espera que el 41.2% de los pacientes que comienzan el tratamiento continúen al nivel 5.
+
+-   Igualmente, un paciente que termine el nivel 5 del tratamiento tendrá una probabilidad del 34.4% de continuar al nivel 6 o de manera análoga, se espera que el 34.4% de los pacientes que comienzan el tratamiento continúen al nivel 6.
+
+## Diferencia entre grupos
+
