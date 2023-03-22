@@ -73,7 +73,7 @@ Con esta última se tienen las siguientes conclusiones:
 -   Finalmente y a diferencia de los demás niveles, en el nivel 6 los pacientes suelen tardar más en promedio, con casi 28 días para terminar este nivel.
 
 Ahora, interesa conocer cuánto se demora un paciente en promedio para finalizar el tratamiento en su totalidad. Para esta causa se muestra el siguiente resumen.
-
+\newpage
 ```{r}
 Datosdepurados <- read_excel("Datosdepurados.xlsx")
 Datosdepurados$dias <- difftime(Datosdepurados$`Fecha Fin`,
@@ -174,3 +174,101 @@ Dicho esto, se tienen las siguientes conclusiones de interés:
 
 ## Diferencia entre grupos
 
+Una de las dinámicas del tratamiento consiste en programar una cita de control para cada paciente una vez termine uno de los niveles y esté a puertas de comenzar el siguiente; sin embargo estas citas de control en algunas ocasiones suelen programarse en un periodo prolongado, lo que ocasiona una ventana de tiempo considerablemente grande entre niveles del tratamiento. En este caso se considera que una ventana de tiempo mayor a 15 días entre niveles es excesivo e incluso posiblemente perjudicial para los efectos del tratamiento.
+
+Con lo anterior se crea naturalmente el cuestionamiento: ¿Un GAP (ventana) de tiempo excesivo (mayor a quince días) entre niveles ocasiona que los pacientes bajo tratamiento se adhieran menos al mismo?
+
+Para dar respuesta a esta pregunta se clasifican los pacientes de acuerdo a si en algún momento de su tratamiento tuvieron al menos un GAP de tiempo mayor a quince días en algún momento. Habitualemnte se crean dos grupos: Aquellos que tuvieron sus citas de control en menos de quince días (GAP $\leq$ 15) y aquellos que en algún momento del tratamiento tuvieron un tiempo de espera prolongado entre niveles del mismo (GAP > 15). Así pues, para apreciar la adherencia de ambos grupos se grafican sus respectivas curvas de supervivencia como sigue.
+
+```{r, warning=FALSE, fig.width=8.5}
+KM_fit_2 <- survfit(Surv(dias, evento) ~ GAP, data = Datosdepurados)
+
+p2 <- autoplot(KM_fit_2, type="fill",surv.alpha=0.9, 
+               surv.size=2,
+               conf.int.alpha=0.2,
+               censor.size=5,
+               censor.colour="purple")+ 
+  labs(x = "\n Tiempo en el tratamiento (Días) ", 
+       y = "Probabilidad de continuar \n", 
+       title = "Curva de supervivencia estimada:\n TMO para pacientes con apnea del sueño",
+       caption = "Usando el estimador de Kaplan-Meier",
+       color = "Tiempo de espera\n entre niveles") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) +
+  geom_vline(xintercept = c(21,36,57,74,94,121), linetype="dashed", 
+             color = "black", size=0.5) +
+  xlim(0,125) +
+  geom_label(aes(x=21, y = 1, label = "Nivel 1")) +
+  geom_label(aes(x=36, y = 1, label = "Nivel 2")) +
+  geom_label(aes(x=57, y = 1, label = "Nivel 3")) +
+  geom_label(aes(x=74, y = 1, label = "Nivel 4")) +
+  geom_label(aes(x=94, y = 1, label = "Nivel 5")) +
+  geom_label(aes(x=121, y = 1, label = "Nivel 6")) +
+  guides(fill="none")
+p2
+```
+
+Antes de proceder a concluír sobre estas dos curvas, es necesario demostrar estadísticamente si existe una diferencia significativa entre las mismas.
+
+Veamos entonces si existe una diferencia estadísticamente significativa entre las dos curvas de supervivencia ilustradas anteriormente.
+
+Denote $S_1(t)$: Curva de supervivencia para pacientes que no experimentan un GAP grande de tiempo y $S_2(t)$: Curva de supervivencia para pacientes que en algún momento de su tratamiento tuvieron que esperar más de quince días entre niveles.
+
+Así entonces, mediante la prueba Log-Rank se desea juzgar el siguiente juego de hipótesis
+
+$$
+\begin{cases}
+H_0: S_1(t) = S_2(t)\\
+H_1: S_1(t) \neq S_2(t)
+\end{cases}
+$$
+Con esto, usando un nivel de significancia $\alpha = 0.05$, se obtiene el siguiente resultado
+
+```{r}
+km_fit_2_test <- survdiff(Surv(dias, evento) ~ GAP, data = Datosdepurados)
+
+test_res <- data.frame(chi = km_fit_2_test$chisq, p = km_fit_2_test$pvalue)
+
+kable(test_res, caption = "Resultados Prueba Log-Rank", align = "c",
+      booktab = T, escape = F, col.names = c("$\\chi^2$", "Valor P"), digits = 4)
+```
+
+Teniendo en cuenta que Valor P $<<<$ $\alpha = 0.05$, se puede rechazar $H_0: S_1(t) = S_2(t)$ contundentemente, concluyendo así que la supervivencia entre los dos grupos es significativamente diferente.
+
+
+Así entonces se pueden realizar las siguientes conclusiones.
+
+- La supervivencia de los pacientes que en algún momento de su tratamiento experimentan un GAP de tiempo excesivo parece ser superior a la de los pacientes que no tienen que esperar mucho antes de iniciar su siguiente nivel respectivo, es decir, los pacientes que en algún momento deben esperar mucho por una cita de control parecen adherirse mas al tratamiento, resultado completamente contraintuitivo.
+
+- Si bien los pacientes que experimentan un GAP grande de tiempo parecen adherirse más al tratamiento, hay que concluír con cuidado en este aspecto, porque el tiempo prolongado en la programación de estas citas de control pueden estar inflando falsamente la supervivencia de un paciente que más adelante no va a continuar con su tratamiento.
+
+## ¿Realmente sobreviven más los pacientes con GAP grande?
+
+```{r}
+proportions <- table(Datosdepurados$Status, Datosdepurados$GAP) %>% 
+  prop.table(margin = 2) %>% as.data.frame() %>% mutate(Status = ifelse(Var1=="Evento",
+                                                                        "Abandonó",
+                                                                        "Continuó"),
+                                                        GAP = Var2, 
+                                                        Proportion = Freq) %>%
+  select(GAP, Proportion, Status)
+
+ggplot(proportions, aes(x = GAP, y = Proportion, fill = Status)) + 
+  geom_bar(stat = "identity", position=position_dodge()) +
+  geom_text(aes(label=Proportion %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "Tiempo (GAP) entre niveles", 
+       y = "Proporción", 
+       title = "Proporción de pacientes que abandonaron de acuerdo al GAP",
+       fill = "Condición") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) 
+```
+
+Note que de acuerdo a este gráfico, para los pacientes que no experimentan un tiempo de espera mayor a quince días entre sus niveles, el 83% de los mismos abandonaron el tratamientos. Sin embargo, para aquellos pacientes que en algún momento del tratamiento tuvieron que esperar más de quince días para iniciar un nuevo nivel, esta proporción es menor, pues en este caso, solo el 59% abandonó el tratamiento.

@@ -73,3 +73,32 @@ p2 <- autoplot(KM_fit, type="fill",surv.alpha=0.9,
                linetype="dashed")
   
 ggplotly(p2)
+
+#Estimando S(t) para grupos de GAP
+KM_fit_2 <- survfit(Surv(dias, evento) ~ GAP, data = Datosdepurados)
+
+p2 <- autoplot(KM_fit_2, type="fill",surv.alpha=0.9, 
+               surv.size=2,
+               conf.int.alpha=0.2,
+               censor.size=5,
+               censor.colour="purple")+ 
+  labs(x = "\n Tiempo en el tratamiento (Días) ", 
+       y = "Probabilidad de continuar \n", 
+       title = "Curva de supervivencia estimada:\n TMO para pacientes con apnea del sueño",
+       caption = "Usando el estimador de Kaplan-Meier",
+       color = "Tiempo de espera\n entre niveles") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) +
+  geom_vline(xintercept = c(21,36,57,74,94,121), linetype="dashed", 
+             color = "black", size=0.5) +
+  xlim(0,125) +
+  geom_label(aes(x=21, y = 1, label = "Nivel 1")) +
+  geom_label(aes(x=36, y = 1, label = "Nivel 2")) +
+  geom_label(aes(x=57, y = 1, label = "Nivel 3")) +
+  geom_label(aes(x=74, y = 1, label = "Nivel 4")) +
+  geom_label(aes(x=94, y = 1, label = "Nivel 5")) +
+  geom_label(aes(x=121, y = 1, label = "Nivel 6")) +
+  guides(fill="none")

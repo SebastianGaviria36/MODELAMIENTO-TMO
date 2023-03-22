@@ -60,7 +60,7 @@ for (nomb in nombrestratcomp){
     print(datos %>% filter(nombre == nomb) %>% select(doc) %>% unique() %>% as.numeric())
     print(which.min(despera))
   }
-  if (sum(na.omit(despera) > 20) != 0) {print(nomb)}
+  if (sum(na.omit(despera) > 15) != 0) {print(nomb)}
   tiemposespera <- append(tiemposespera, na.omit(despera))
   
 }
@@ -102,3 +102,27 @@ for (i in 2:nrow(datosnew)){
 }
 
 datosnew$status[is.na(datosnew$status)] <- "Censura"
+
+#Creando Categoría de gap
+nombresgap <- c()
+for (nomb in pacientes){
+  registrospaciente <- datos %>% filter(nombre == nomb) %>% arrange(inicio)
+  despera <- difftime(registrospaciente$inicio[2:6],
+                      registrospaciente$fin[1:5], units = "days")
+  if (sum(na.omit(despera) > 15) != 0) {
+    print(nomb)
+    nombresgap <- append(nombresgap, nomb)
+    }
+}
+
+datostemp <- read_excel("Datosdepurados.xlsx")
+datostemp$GAP <- NA
+
+for (i in 1:nrow(datostemp)){
+  if (datostemp$Nombre[i] %in% nombresgap){
+    datostemp$GAP[i] <- "GAP > 15 Días"
+  }
+  else{
+    datostemp$GAP[i] <- "GAP < 15 Días"
+  }
+}
