@@ -243,6 +243,8 @@ Así entonces se pueden realizar las siguientes conclusiones.
 
 - La supervivencia de los pacientes que en algún momento de su tratamiento experimentan un GAP de tiempo excesivo parece ser superior a la de los pacientes que no tienen que esperar mucho antes de iniciar su siguiente nivel respectivo, es decir, los pacientes que en algún momento deben esperar mucho por una cita de control parecen adherirse mas al tratamiento, resultado completamente contraintuitivo.
 
+- **Sin embargo, el GAP de tiempo mencionado puede no ser debido exclusivamente al tiempo en que se programa una cita de control. En ocasiones, se puede considerar adecuado que un paciente realice ciertos ejercicios durante un periodo de tiempo antes de comenzar el siguiente nivel, lo cual no es necesariamente negativo, por el contrario puede pensarse que un acompañamiento cercano al paciente lo motiva más y hace que el mismo mejore sus probabilidades de terminar exitosamente el tratamiento.**
+
 - Si bien los pacientes que experimentan un GAP grande de tiempo parecen adherirse más al tratamiento, hay que concluír con cuidado en este aspecto, porque el tiempo prolongado en la programación de estas citas de control pueden estar inflando falsamente la supervivencia de un paciente que más adelante no va a continuar con su tratamiento.
 
 ## ¿Realmente sobreviven más los pacientes con GAP grande?
