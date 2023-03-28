@@ -13,11 +13,13 @@ Sin embargo, el CPAP es un tratamiento indicado para pacientes con AOS severo, q
 La TMO se puede definir como un tratamiento no invasivo que se basa en principios de fisiología del ejercicio, en el que se intervienen los músculos y estructuras que conforman la Vía Aérea Superior (VAS), como el velo del paladar, la lengua y la musculatura de soporte alrededor de la boca, como los labios y las mejillas. Se realizan ejercicios, maniobras y prácticas que involucran además la adecuación de funciones orales como la respiración, la masticación, la deglución y el habla.
 Los archivos principales del repositorio son:
 
-- [adecuacion.R](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO/blob/main/adecuacion.R): Donde podrás encontrar el código en R con el cuál fué acondicionada la base de datos principal del proyecto en aras de los desarrollos posteriores.
+- [adecuacion.R](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO-AOS/blob/main/C%C3%B3digo/adecuacion.R): Donde podrás encontrar el código en R con el cuál fué acondicionada la base de datos principal del proyecto en aras de los desarrollos posteriores.
 
-- [kaplan-meier.R](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO/blob/main/kaplan-meier.R): Como su nombre lo indica, en este script se encuentra el código escrito para la estimación de la curva de supervivencia mediante el estimador de Kaplan-Meier.
+- [kaplan-meier.R](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO-AOS/blob/main/C%C3%B3digo/kaplan-meier.R): Como su nombre lo indica, en este script se encuentra el código escrito para la estimación de la curva de supervivencia mediante el estimador de Kaplan-Meier.
 
-- [kaplan-meier.pdf](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO/blob/main/kaplan-meier.pdf): Acá podrás encontrar la curva de supervivencia estimada en el literal anterior pero dispuesta de manera gráfica.
+- [kaplan-meier.pdf](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO-AOS/blob/main/Gr%C3%A1ficos/kaplan-meier.pdf): Acá podrás encontrar la curva de supervivencia estimada en el literal anterior pero dispuesta de manera gráfica.
+
+- [AnálisisEstadísticoTMO-AOS.pdf](https://github.com/SebastianGaviria36/MODELAMIENTO-TMO-AOS/blob/main/An%C3%A1lisisEstad%C3%ADsticoTMO-AOS.pdf): Acá podrás encontrar un informe técnico con los resultados mas importantes del desarrollo, algunos gráficos y comentarios propios del estudio.
 
 Esperamos que nuestro estudio y este repositorio sean de gran utilidad para la comunidad científica interesada en la AOS y la TMO. ¡Gracias por visitarnos!
 
