@@ -5,7 +5,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F)
+knitr::opts_chunk$set(echo = F, warning = F)
 library(readxl)
 library(dplyr)
 library(lubridate)
@@ -13,6 +13,7 @@ library(knitr)
 library(ggfortify)
 library(plotly)
 library(survival)
+library(ggpubr)
 ```
 
 ```{r}
@@ -72,8 +73,8 @@ Con esta última se tienen las siguientes conclusiones:
 
 -   Finalmente y a diferencia de los demás niveles, en el nivel 6 los pacientes suelen tardar más en promedio, con casi 28 días para terminar este nivel.
 
-Ahora, interesa conocer cuánto se demora un paciente en promedio para finalizar el tratamiento en su totalidad. Para esta causa se muestra el siguiente resumen.
-\newpage
+Ahora, interesa conocer cuánto se demora un paciente en promedio para finalizar el tratamiento en su totalidad. Para esta causa se muestra el siguiente resumen. \newpage
+
 ```{r}
 Datosdepurados <- read_excel("Datosdepurados.xlsx")
 Datosdepurados$dias <- difftime(Datosdepurados$`Fecha Fin`,
@@ -172,13 +173,13 @@ Dicho esto, se tienen las siguientes conclusiones de interés:
 
 -   Igualmente, un paciente que termine el nivel 5 del tratamiento tendrá una probabilidad del 34.4% de continuar al nivel 6 o de manera análoga, se espera que el 34.4% de los pacientes que comienzan el tratamiento continúen al nivel 6.
 
-## Diferencia entre grupos
+## Diferencia entre grupos de GAP
 
 Una de las dinámicas del tratamiento consiste en programar una cita de control para cada paciente una vez termine uno de los niveles y esté a puertas de comenzar el siguiente; sin embargo estas citas de control en algunas ocasiones suelen programarse en un periodo prolongado, lo que ocasiona una ventana de tiempo considerablemente grande entre niveles del tratamiento. En este caso se considera que una ventana de tiempo mayor a 15 días entre niveles es excesivo e incluso posiblemente perjudicial para los efectos del tratamiento.
 
 Con lo anterior se crea naturalmente el cuestionamiento: ¿Un GAP (ventana) de tiempo excesivo (mayor a quince días) entre niveles ocasiona que los pacientes bajo tratamiento se adhieran menos al mismo?
 
-Para dar respuesta a esta pregunta se clasifican los pacientes de acuerdo a si en algún momento de su tratamiento tuvieron al menos un GAP de tiempo mayor a quince días en algún momento. Habitualemnte se crean dos grupos: Aquellos que tuvieron sus citas de control en menos de quince días (GAP $\leq$ 15) y aquellos que en algún momento del tratamiento tuvieron un tiempo de espera prolongado entre niveles del mismo (GAP > 15). Así pues, para apreciar la adherencia de ambos grupos se grafican sus respectivas curvas de supervivencia como sigue.
+Para dar respuesta a esta pregunta se clasifican los pacientes de acuerdo a si en algún momento de su tratamiento tuvieron al menos un GAP de tiempo mayor a quince días en algún momento. Habitualemnte se crean dos grupos: Aquellos que tuvieron sus citas de control en menos de quince días (GAP $\leq$ 15) y aquellos que en algún momento del tratamiento tuvieron un tiempo de espera prolongado entre niveles del mismo (GAP \> 15). Así pues, para apreciar la adherencia de ambos grupos se grafican sus respectivas curvas de supervivencia como sigue.
 
 ```{r, warning=FALSE, fig.width=8.5}
 KM_fit_2 <- survfit(Surv(dias, evento) ~ GAP, data = Datosdepurados)
@@ -224,8 +225,7 @@ $$
 H_0: S_1(t) = S_2(t)\\
 H_1: S_1(t) \neq S_2(t)
 \end{cases}
-$$
-Con esto, usando un nivel de significancia $\alpha = 0.05$, se obtiene el siguiente resultado
+$$ Con esto, usando un nivel de significancia $\alpha = 0.05$, se obtiene el siguiente resultado
 
 ```{r}
 km_fit_2_test <- survdiff(Surv(dias, evento) ~ GAP, data = Datosdepurados)
@@ -238,14 +238,13 @@ kable(test_res, caption = "Resultados Prueba Log-Rank", align = "c",
 
 Teniendo en cuenta que Valor P $<<<$ $\alpha = 0.05$, se puede rechazar $H_0: S_1(t) = S_2(t)$ contundentemente, concluyendo así que la supervivencia entre los dos grupos es significativamente diferente.
 
-
 Así entonces se pueden realizar las siguientes conclusiones.
 
-- La supervivencia de los pacientes que en algún momento de su tratamiento experimentan un GAP de tiempo excesivo parece ser superior a la de los pacientes que no tienen que esperar mucho antes de iniciar su siguiente nivel respectivo, es decir, los pacientes que en algún momento deben esperar mucho por una cita de control parecen adherirse mas al tratamiento, resultado completamente contraintuitivo.
+-   La supervivencia de los pacientes que en algún momento de su tratamiento experimentan un GAP de tiempo excesivo parece ser superior a la de los pacientes que no tienen que esperar mucho antes de iniciar su siguiente nivel respectivo, es decir, los pacientes que en algún momento deben esperar mucho por una cita de control parecen adherirse mas al tratamiento, resultado completamente contraintuitivo.
 
-- **Sin embargo, el GAP de tiempo mencionado puede no ser debido exclusivamente al tiempo en que se programa una cita de control. En ocasiones, se puede considerar adecuado que un paciente realice ciertos ejercicios durante un periodo de tiempo antes de comenzar el siguiente nivel, lo cual no es necesariamente negativo, por el contrario puede pensarse que un acompañamiento cercano al paciente lo motiva más y hace que el mismo mejore sus probabilidades de terminar exitosamente el tratamiento.**
+-   **Sin embargo, el GAP de tiempo mencionado puede no ser debido exclusivamente al tiempo en que se programa una cita de control. En ocasiones, se puede considerar adecuado que un paciente realice ciertos ejercicios durante un periodo de tiempo antes de comenzar el siguiente nivel, lo cual no es necesariamente negativo, por el contrario puede pensarse que un acompañamiento cercano al paciente lo motiva más y hace que el mismo mejore sus probabilidades de terminar exitosamente el tratamiento.**
 
-- Si bien los pacientes que experimentan un GAP grande de tiempo parecen adherirse más al tratamiento, hay que concluír con cuidado en este aspecto, porque el tiempo prolongado en la programación de estas citas de control pueden estar inflando falsamente la supervivencia de un paciente que más adelante no va a continuar con su tratamiento.
+-   Si bien los pacientes que experimentan un GAP grande de tiempo parecen adherirse más al tratamiento, hay que concluír con cuidado en este aspecto, porque el tiempo prolongado en la programación de estas citas de control pueden estar inflando falsamente la supervivencia de un paciente que más adelante no va a continuar con su tratamiento.
 
 ## ¿Realmente sobreviven más los pacientes con GAP grande?
 
@@ -274,3 +273,654 @@ ggplot(proportions, aes(x = GAP, y = Proportion, fill = Status)) +
 ```
 
 Note que de acuerdo a este gráfico, para los pacientes que no experimentan un tiempo de espera mayor a quince días entre sus niveles, el 83% de los mismos abandonaron el tratamientos. Sin embargo, para aquellos pacientes que en algún momento del tratamiento tuvieron que esperar más de quince días para iniciar un nuevo nivel, esta proporción es menor, pues en este caso, solo el 59% abandonó el tratamiento.
+
+\newpage
+
+## Análisis descriptivo: Pacientes que llegaron a la meta
+
+Se dispone de una base de datos que contiene información relacionada a 126 pacientes que completaron el tratamiento miofuncional orofacial (TMO) en todos sus niveles. En dicha base de datos se encuentra consignada información relacionada a comorbilidades, condiciones oclusales, diversos índices, edad, sexo etc. de cada uno de los pacientes que completaron el tratamiento. La estructura de la base de datos así como algunas variables se ilustran en la siguiente tabla:
+
+```{r}
+Datos130 <- read_excel("Datos130Adecuada.xlsx")
+
+kable(head(Datos130[c(2,3,4,9,8)]), caption = "Estructura de los datos", align = "c",
+      booktab = T, escape = F, digits = 4)
+```
+
+En este ejemplo, la variable "PuntGeneral" es una escala continua de 1-5 que indica el nivel de satisfacción/efectividad del tratamiento del paciente, donde 1 indica un paciente que considera inefectivo el tratamiento y 5 indica que el paciente considera el tratamiento absolutamente efectivo.
+
+### Variables esquema, sexo, edad e IMC
+
+Así entonces, para dar inicio al análisis descriptivo, se plantean los siguientes gráficos:
+
+```{r}
+plot1 <- ggplot(prop.table(table(Datos130$`ESQUEMA NIVEL 1`)) %>% as.data.frame(), aes(x = Var1, y = Freq)) + 
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "Esquema Nivel 1", 
+       y = "Proporción", 
+       title = "Proporción de pacientes por esquema nivel 1") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) 
+
+plot2 <- ggplot(prop.table(table(Datos130$SEXO)) %>% as.data.frame(), aes(x = Var1, y = Freq)) + 
+  geom_bar(stat = "identity", fill = "darkgreen") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "Sexo", 
+       y = "Proporción", 
+       title = "Proporción de pacientes por sexo") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) 
+plot3 <- ggplot(Datos130, aes(x = EDAD)) +
+  geom_density(color="darkblue", fill="lightblue") + 
+  labs(x = "Edad", 
+       y = "Densidad", 
+       title = "Concentración de la edad de los pacientes") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10)) +
+  scale_x_continuous(breaks = seq(15,80,5), limits = c(15,80))
+
+plot4 <- ggplot(Datos130, aes(x = IMC)) +
+  geom_density(color="darkred", fill="red") + 
+  labs(x = "IMC", 
+       y = "Densidad", 
+       title = "Concentración del IMC") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+ggarrange(plot1,plot2,plot3,plot4)
+```
+Según estos gráficos se tienen las siguientes apreciaciones:
+
+- Aproximadamente el 31% de los pacientes ingresan al tratamiento mediante el esquema TCC, mientras que el 69% restante ingresan directamente por fonoaudiología.
+
+- El 65% de los pacientes son femeninos, diferencia significativa con la muestra masculina.
+
+- En general, el rango de edad de los pacientes del tratamiento es de los 18 a 75 años, y según el gráfico, hay una concentración destacable de pacientes entre los 30 y 40 años, sin embargo la concentración más apreciable de pacientes se encuentra entre los 50 y 60 años de edad. 
+
+- De manera similar, el índice de masa corporal centra usualmente sus valores alrededor del 25, sin embargo se puede notar una pequeña moda alrededor del 32 que podría indicar un porción considerable de pacientes en el rango de la obesidad.
+
+### Análisis escala Epworth
+
+Para lo que respecta a la escala de Epworth, observe el siguiente gráfico:
+
+```{r}
+ggplot(data.frame(X1 = c(rep("Salida", 126), rep("Basal",126)),
+                  X2 = c(Datos130$`EPWORTH SALIDA`, Datos130$`EPWORTH BASAL`)), 
+       aes(y = X2, fill = X1)) + geom_boxplot() +
+  labs(x = "", 
+       y = "Resultado", 
+       title = "Resultado Epworth Basal vs. Salida",
+       fill = "Momento") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+```
+
+- De este boxplot se puede apreciar que existe una diferencia aparente en el resultado de la escala de somnolencia entre el momento de entrada y salida de un paciente al tratamiento. En general puede decirse que una vez concluído el tratamiento, los pacientes se autoperciben menos somnolientos respecto al momento de entrada a la terapia miofuncional orofacial.
+
+\newpage
+
+### Síntomas reportados
+
+Ahora, en relación a los síntomas que reportan los pacientes al momento de la terapia, observe los siguientes gráficos:
+
+```{r, fig.height=3}
+plot21 <- ggplot(prop.table(table(Datos130$`SINTOMAS BASALES`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Síntomas Basales",
+       fill = "Síntoma") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank()) 
+
+plot22 <- ggplot(prop.table(table(Datos130$`SINTOMA PRINCIPAL`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Síntoma Principal",
+       fill = "Síntoma") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+plot21
+plot22
+```
+
+- Del primer gráfico de barras se aprecia que el síntoma basal principal es por diferencia el cansancio crónico, marcado como primero el 40% de las veces. Los siguientes síntomas más recurrentes en este apartado son la cefalea matutina y el despertarse con ahogo.
+
+- Por otro lado, del segundo gráfico se aprecia algo distinto, y es que en este caso, el 26% de los pacientes definieron el ronquido como su síntoma principal. Otro síntoma destacable en este caso es la dificultad para mantener el sueño, puesto el 14% de las veces como síntoma principal.
+
+\newpage
+
+### Tipo de examen de sueño
+
+Observe ahora el siguiente gráfico en relación al tipo de examen de sueño
+
+```{r}
+ggplot(prop.table(table(Datos130$`TIPO EXAMEN DE SUEÑO`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción por tipo de examen",
+       fill = "Tipo") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- La mayoría de pacientes que ingresan al tratamiento se les practica una Polisomnografía como examen del sueño, abarcando el 87% de los casos.
+
+\newpage
+
+### Índices y variables numéricas
+
+Se plantean ahora los siguientes gráficos relativos a índices y variables numéricas
+
+```{r, fig.height=8}
+plot31 <- ggplot(Datos130, aes(x = `IAH BASAL`)) +
+  geom_density(color="orange", fill="darkorange") + 
+  labs(x = "", 
+       y = "Densidad", 
+       title = "IAH Basal") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plot32 <- ggplot(Datos130, aes(x = `INDICE DE RONQUIDO/h`)) +
+  geom_density(color="orange", fill="darkorange") + 
+  labs(x = "", 
+       y = "Densidad", 
+       title = "Indice de Ronquido/h") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plot33 <- ggplot(Datos130, aes(x = `% SpO2`)) +
+  geom_density(color="orange", fill="darkorange") + 
+  labs(x = "", 
+       y = "Densidad", 
+       title = "% SpO2") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+
+plot34 <- ggplot(Datos130, aes(x = `MÍNIMAS DE O2`)) +
+  geom_density(color="orange", fill="darkorange") + 
+  labs(x = "", 
+       y = "Densidad", 
+       title = "Minimas de o2") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+
+plot35 <- ggplot(Datos130, aes(x = `T 90`)) +
+  geom_density(color="orange", fill="darkorange") + 
+  labs(x = "", 
+       y = "Densidad", 
+       title = "T 90") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+
+ggarrange(plot31,plot32,plot33,plot34,plot35, ncol = 2, nrow = 3)
+```
+De este conjunto de gráficos se aprecia lo siguiente:
+
+- Los valores más usuales para el índice de apneas hipoapneas de sueño se centran alrededor de 10. La gran mayoría de los pacientes registran este índice entre los valores de 0 y 20; sin embargo existen pacientes que tienen registros más altos llegando al caso extremo de un paciente que registra un índice de 66.3 apneas hipoapneas de sueño.
+
+- La curva de densidad para el índice de ronquido se nota un poco más extendida sobre su rango, donde un poco menos de la mitad de los pacientes registran menos de 200 en este índice de ronquido. Nuevamente se aprecia una cola hacia la derecha de la distribución muestral de esta variable, lo que indica presencia de valores extremos por encima de 600.
+
+- Los porcentajes de SpO2 varían entre 0.84 y 0.96, centrando sus valores (usuales) en el 92%. La mayoría de pacientes en este aspecto registran entre 90% y 94% de saturación promedio por horas de sueño grabadas durante el examen; sin ebargo existe una ligera cola a la izquierda de esta dsitribución que indica valores por debajo del 88% que resultan atípicos según el comportamiento normal de esta variable.
+
+- Una situación similar se aprecia cuando se observa la curva de las mínimas de o2. En este punto los valores se concentran entre 0.75 y 0.90. Sin embargo y de manera análoga al gráfico anterior, en esta distribución se aprecia una cola a la izquiera lo que indica la presencia de valores extremos y atípicamente pequeños.
+
+- Finalmente, en lo que respecta al porcentaje de tiempo en el que la saturación de oxigeno estuvo por debajo de 90% por el total de horas de sueño grabadas, se puede apreciar que los valores se concentran a la izquierda del 25%, siendo los porcentajes más pequeños los más usuales. Sin embargo se aprecia que existen valores grandes que extienden la distribución hasta un 100%.
+
+### Relativo a vías aereas superiores
+
+En relación a las vías aereas superiores, se plantean los siguientes gráficos:
+
+```{r}
+ggplot(prop.table(table(unlist(strsplit(Datos130$`CUAL (ES)`, ", ")))) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción por procedimiento quirúrgico",
+       fill = "Tipo") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+ggplot(prop.table(table(Datos130$OVAS)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con OVAS",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- Del primer gráfico se abserva que, el 74% de los pacientes no ha tenido una cirugía en sus vías aéreas superiores. El 11% ha tenido una Amigdalectomía, el 8% una Turbinoplastia y el 6% una Septoplastia. 
+
+- Del segundo se concluye que el 65% de los pacientes no poseen obstrucciones de la vía aérea superior.
+
+\newpage
+
+### Condiciones relacionadas a la cavidad oral
+
+En los siguientes gráficos se analizan algunas condiciones relacionadas a la cavidad oral de los pacientes:
+
+```{r}
+plot41 <- ggplot(prop.table(table(Datos130$`LENG RETRAÍDA`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nLengua Retraída",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot42 <- ggplot(prop.table(table(Datos130$`UVULA ALARGADA`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nUvula Alargada",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot43 <- ggplot(prop.table(table(Datos130$`VELO DESCENDIDO`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nVelo Descendido",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot44 <- ggplot(prop.table(table(Datos130$`PILARES ERITEMATOSOS`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nPilares Eritematosos",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+ggarrange(plot41,plot42,plot43,plot44)
+```
+
+- Del primero se nota que el 67% de los pacientes que terminaron su tratamiento poseen la condición de lengua retraída.
+
+- Similarmente, el 79% de los pacientes poseen una uvula alargada, mientras que en un 7% de las personas no se logra concluír sobre esta condición.
+
+- Igualmente, en lo que al velo descendido respecta, se observa que el 94% de los pacientes del tratamiento tienen esta condición.
+
+- De manera casi idéntica, el 96% de los pacientes registra pilares eritematosos.
+
+¿Existe entonces una relación entre las últimas dos condiciones? Véase la siguiente tabla:
+
+```{r}
+kable(table(Datos130$`VELO DESCENDIDO`, Datos130$`PILARES ERITEMATOSOS`), caption = "VELO DESCENDIDO VS PILARES ERITEMATOSOS", align = "c",
+      booktab = T, escape = F, digits = 4)
+```
+
+De esta tabla se aprecia que prácticamente todos los pacientes que poseen velo descendido, poseen además pilares eritematosos.
+
+### Comorbilidades
+
+Para tener una perspectiva de las comorbilidades entre los pacientes del tratamiento, se plantean los siguientes gráficos:
+
+```{r}
+plot51 <- ggplot(prop.table(table(Datos130$CO_Cardiovasculares)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \ncomorbilidades cardiovasculares",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot52 <- ggplot(prop.table(table(Datos130$CO_Endocrino_metabólicas)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \ncomorbilidades endocrino-metabólicas",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot53 <- ggplot(prop.table(table(Datos130$CO_Psiquiátricas)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \ncomorbilidades psiquiátricas",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot54 <- ggplot(prop.table(table(Datos130$CO_Pulmonares)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \ncomorbilidades pulmonares",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+ggarrange(plot51,plot52,plot53,plot54)
+```
+
+- De este conjunto de gráficos se aprecia que, las comorbilidades más usuales entre los pacientes en el tratamiento son las comorbilidades cardiovasculares y las endocrino-metabólicas, esta última presente en casi la mitad de los pacientes. 
+
+- La proporción de pacientes con comorbilidades psiquiátricas o pulmonares es baja, con 15% y 17% de los pacientes respectivamente.
+
+### Mordida
+
+De manera similar, para tener una perspectiva de las condiciones en la mordida de los pacientes se plantea el siguiente conjunto de gráficos:
+
+```{r, fig.height=10}
+plot61 <- ggplot(prop.table(table(Datos130$Línea_media_desviada)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nlínea media desviada",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot62 <- ggplot(prop.table(table(Datos130$Mordida_borde_a_borde)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nmordida borde a borde",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot63 <- ggplot(prop.table(table(Datos130$Mordida_abierta_anterior)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nmordida abierta anterior",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot64 <- ggplot(prop.table(table(Datos130$Mordida_cruzada)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nmordida cruzada",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot65 <- ggplot(prop.table(table(Datos130$Maloclusión_clase_II)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nmaloclusión clase II",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+plot66 <- ggplot(prop.table(table(Datos130$Maloclusión_clase_III)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Proporción de pacientes con \nmaloclusión clase III",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+
+ggarrange(plot61,plot62,plot63,plot64,plot65,plot66, ncol=2,nrow=3)
+```
+
+- De las condiciones en la mordida de los pacientes bajo tratamiento, la línea media desviada es la más frecuente con un 57% de los pacientes que la poseen.
+
+- Condiciones como mordida borde aborde, mordida abierta anterior y mordida cruzada son poco usuales entre los pacientes. En todos los casos, menos del 10% de los pacientes tuvieron alguna de estas condiciones.
+
+- El 16% y 13% de los pacientes reportaron maloclusión clase II y maloclusión clase III respectivamente.
+
+### Maniobras de bostezo y fonema
+
+Ahora, para visualizar el resultado de las maniobras de bostezo y fonema para los pacientes que completaron el tratamiento, se exponen los siguientes gráficos:
+
+```{r}
+ggplot(prop.table(table(Datos130$`MAN BOSTEZO - VELO`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Resultados de Maniobra Bostezo - Velo",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- De este gráfico se puede apreciar que el 80% de los pacientes ascienden el velo en la maniobra de bostezo, con un 43% para aquellos que lo hacen de forma reducida, y un 37% para aquellos que en la maniobra de bostezo ascienden el velo totalmente. Un 16% de los pacientes poseen un dorso lingual lo suficientemente alto para impedir la conclusión en esta maniobra. 
+
+
+```{r}
+ggplot(prop.table(table(Datos130$`MAN BOSTEZO - ÚVULA`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Resultados de Maniobra Bostezo - Úvula",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- Continuando con la misma maniobra pero observando la úvula, en el gráfico se logra apreciar que 1/4 de los pacientes no contrae la úvula en la maniobra de bostezo, proporción completamente análoga a aquellos pacientes que poseen un dorso lingual que imposibilita la observación del resultado. En este caso la mayoría de los pacientes contraen la úvula totalmente, sin embargo la diferencia con los demás grupos es reducida.
+
+
+```{r}
+ggplot(prop.table(table(Datos130$`MAN. FONEMA - VELO`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Resultados de Maniobra Fonema - Velo",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- Pasando a la maniobra de fonema, según el gráfico se puede observa que casi un 60% de los pacientes asciende el velo de manera reducida en esta prueba. En este caso los pacientes que no ascienden el velo son minoría con un 10% y los demás grupos empatan sus proporciones con cerca de un 15%.
+
+
+```{r}
+ggplot(prop.table(table(Datos130$`MAN FONEMA - ÚVULA`)) %>% as.data.frame(), aes(x = Var1, y = Freq, fill = Var1)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label=Freq %>% round(2)), vjust=1.6, color="white",
+            position = position_dodge(0.9), size=3.5)+ 
+  labs(x = "", 
+       y = "Proporción", 
+       title = "Resultados de Maniobra Fonema - Úvula",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.text.x = element_blank())
+```
+
+- Finalmente, observando la úvula en la maniobra de fonema, se puede notar que una mayoría de los pacientes no la contraen en este ejercicio con un 35% del total de los participantes. Es destacable en este caso que hay una gran proporción (29%) de pacientes con un dorso lingual tan alto como para no observar el resultado de la práctica. 
+
+## Continuación: Variable respuesta vs. regresores
+
+Como se comentó en el principio del análisis descriptivo, la variable "PuntGeneral" es una escala continua de 1-5 que indica el nivel de satisfacción/efectividad del tratamiento del paciente, donde 1 indica un paciente que considera inefectivo el tratamiento y 5 indica que el paciente considera el tratamiento absolutamente efectivo.
+
+Esta variable configura en sí misma un indicador de desempeño del tratamiento, y es de interés central poder determinar cuáles son los factores que afectan la percepción del paciente en relación a la efectividad del tratamiento. Por esta razón, en haras de una etapa de modelamiento predictivo posterior, se realiza un análisis descriptivo en relación a la puntuación general que asignan los pacientes de acuerdo al éxito del tratamiento.
+
+```{r}
+ggplot(Datos130, aes(x = `T 90`, y = PuntGeneral)) + geom_point() +
+  labs(x = "", 
+       y = "Resultado", 
+       title = "Resultado Epworth Basal vs. Salida",
+       fill = "Momento") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+```
+
