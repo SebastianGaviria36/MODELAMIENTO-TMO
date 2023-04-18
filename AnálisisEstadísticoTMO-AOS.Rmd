@@ -5,7 +5,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, warning = F)
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
 library(readxl)
 library(dplyr)
 library(lubridate)
@@ -913,16 +913,499 @@ Como se comentó en el principio del análisis descriptivo, la variable "PuntGen
 
 Esta variable configura en sí misma un indicador de desempeño del tratamiento, y es de interés central poder determinar cuáles son los factores que afectan la percepción del paciente en relación a la efectividad del tratamiento. Por esta razón, en haras de una etapa de modelamiento predictivo posterior, se realiza un análisis descriptivo en relación a la puntuación general que asignan los pacientes de acuerdo al éxito del tratamiento.
 
-```{r, eval = F}
-ggplot(Datos130, aes(x = `T 90`, y = PuntGeneral)) + geom_point() +
-  labs(x = "", 
-       y = "Resultado", 
-       title = "Resultado Epworth Basal vs. Salida",
-       fill = "Momento") +
+\newpage
+
+### Distribución de la variable respuesta
+
+Antes de comenzar con el análisis descriptivo de la respuesta vs las covariables en cuestión, es necesario graficar la curva de densidad de la variable respuesta para determinar así una plausible distribución teórica y para tener una visión general de lo obtenido por los pacientes:
+
+```{r}
+plotA <- ggplot(Datos130, aes(x = PuntGeneral)) +
+  geom_density(color="aquamarine", fill="aquamarine3") + 
+  labs(x = "Nivel de Satisfacción", 
+       y = "Densidad", 
+       title = "Densidad de la puntuación") +
   theme_minimal()+
   theme(plot.title = element_text(hjust = 0.5), 
         axis.title.x = element_text(face="bold",  size = 12),
         axis.title.y = element_text(face="bold",  size = 12),
         legend.title = element_text(face="bold", size = 10))
+plotA
 ```
+
+- De este gráfico se puede ver inicialmente que la distribución posee una cola apreciable a la izquierda del 4, adicionalmente se puede ver que la curva es notablemente no-simétrica, por lo cual modelar la respuesta vía un modelo de regresión lineal puede no ser adecuado.
+
+- La mayoría de los puntajes se sitúan en torno al 4, es decir que los pacientes en una gran medida consideran el tratamiento satisfactorio/efectivo. También puede verse que existe una concentración en menor medida cerca al 5, por lo que puede decirse que también hay una porción significativa de los pacientes que consideran el tratamiento absolutamente satisfactorio/efectivo.
+
+\newpage
+
+### Respuesta vs. Edad, Sexo, IMC y Empworth basal
+
+Véase ahora la relación de la puntuación obtenida con las variables mencionadas.
+
+```{r, fig.height=7}
+plotB <- ggplot(Datos130, aes(x = EDAD, y = PuntGeneral)) +
+  geom_point(color = "aquamarine3") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "EDAD", 
+       y = "Puntuación", 
+       title = "Relación entre edad y puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotC <- ggplot(Datos130, aes(fill = SEXO, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Boxplot Sexo Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotD <- ggplot(Datos130, aes(x = IMC, y = PuntGeneral)) +
+  geom_point(color = "chartreuse3") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "IMC", 
+       y = "Puntuación", 
+       title = "Relación entre IMC y puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotE <- ggplot(Datos130, aes(x = `EPWORTH BASAL`, y = PuntGeneral)) +
+  geom_point(color = "chocolate3") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "EPWORTH BASAL", 
+       y = "Puntuación", 
+       title = "Relación entre Epworth basal y puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+ggpubr::ggarrange(plotB,plotC,plotD,plotE)
+```
+
+- Del primer gráfico en relación a la edad, se puede notar que aparentemente, los pacientes mayores suelen calificar mejor al tratamiento; sin embargo esta relación es muy débil (la línea roja es casi horizontal) por lo que esta variable puede no ser significativa para el modelo.
+
+- Del gráfico relativo al sexo se puede notar que las dos cajas se traslapan totalmente, lo que indica en este caso que no existe una diferencia significativa entre masculinos y femeninas a la hora de calificar el tratamiento. Nótese que hay dos puntuaciones atípicamente bajas para las mujeres y una para los hombres.
+
+- De manera similar al primer gráfico, en el tercero se puede apreciar que no existe una relación entre el IMC y la puntuación que los pacientes reportan.
+
+- Finalmente, en lo que respecta al resultado del cuestionario epworth se puede notar que sí existe una relación medianamenete plausible entre dicha variable y la puntuación de efectividad. Particularmente se nota que los pacientes menos somnolientos suelen calificar mejor al tratamiento.
+
+### Síntoma principal
+
+De esta variable surge el cuestionamiento natural: ¿Existe una relación entre el síntoma principal reportado y la puntuacón obtenida?
+
+```{r}
+plotF <- ggplot(Datos130, aes(fill = `SINTOMA PRINCIPAL`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Boxplot Síntoma Principal Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotF
+```
+
+- Se puede apreciar que existe una diferencia signficativa entre los paciente que se despiertan con ahogo y los pacientes somnolientos, donde estos últimos suelen calificar mejor los resultados del tratamiento. Este mismo comportamiento es notable con los pacientes que sufren cefalea matutina y cansancio crónico.
+
+### Índices y porcentajes
+
+Ahora se analiza la relación entre algunas variables numéricas y la respuesta en cuestión
+
+```{r, fig.height=9}
+plotG <- ggplot(Datos130, aes(x = `IAH BASAL`, y = PuntGeneral)) +
+  geom_point(color = "darkorchid") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "IAH BASAL", 
+       y = "Puntuación", 
+       title = "IAH basal vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotH <- ggplot(Datos130, aes(x = `INDICE DE RONQUIDO/h`, y = PuntGeneral)) +
+  geom_point(color = "darkorchid") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "INDICE DE RONQUIDO/h", 
+       y = "Puntuación", 
+       title = "INDICE DE RONQUIDO/h vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotI <- ggplot(Datos130, aes(x = `% SpO2`, y = PuntGeneral)) +
+  geom_point(color = "darkorchid") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "% SpO2", 
+       y = "Puntuación", 
+       title = "% SpO2 vs puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotJ <- ggplot(Datos130, aes(x = `MÍNIMAS DE O2`, y = PuntGeneral)) +
+  geom_point(color = "darkorchid") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "MÍNIMAS DE O2", 
+       y = "Puntuación", 
+       title = "MÍNIMAS DE O2 vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+plotK <- ggplot(Datos130, aes(x = `T 90`, y = PuntGeneral)) +
+  geom_point(color = "darkorchid") +
+  geom_smooth(method='lm', se = F, color = "red") +
+  labs(x = "T 90", 
+       y = "Puntuación", 
+       title = "T 90 vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+ggpubr::ggarrange(plotG,plotH,plotI,plotJ,plotK, ncol = 2, nrow = 3)
+```
+
+- De este grupo de gráficos se puede notar que la variable que tiene una relación apreciable con la respuesta en este caso es T 90, los demás índices y porcentajes no muestran una relación plausible que permita concluir de antemano significancia para explicar el puntaje obtenido.
+
+### Antecedentes quirurgicos en vías aereas superiores
+
+```{r}
+plotL <- ggplot(Datos130, aes(fill = `ANTC QX EN VAS`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Boxplot ANTC QX EN VAS Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotL
+```
+
+- Se aprecia que no existe relación aparente entre la percepción de efectividad del tratamiento y los antecedentes quirurgicos en vías aereas superiores.
+
+\newpage
+
+### OVAS
+
+¿Afecta el poseer obstrucciones en la vía aerea superior en la percepción de efectividad del tratamiento?
+
+```{r}
+plotM <- ggplot(Datos130, aes(fill = OVAS, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Boxplot Ovas Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotM
+```
+
+- Similar a lo obtenido en el apartado anterior, el hecho de poseer algún tipo de obstrucción en las vías aereas superiores aparentemente no afecta el puntaje que se obtiene de efectividad/satisfacción del tratamiento.
+
+\newpage
+
+### Condiciones de la cavidad oral vs puntuación
+
+Ahora se analizarán las condiciones de la cavidad oral en relación a la variable respuesta en cuestión:
+
+```{r}
+plotN <- ggplot(Datos130, aes(fill = `LENG RETRAÍDA`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Lengua Retraída Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotO <- ggplot(Datos130[-9,], aes(fill = `UVULA ALARGADA`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Úvula Alargada Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotP <- ggplot(Datos130, aes(fill = `VELO DESCENDIDO`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Velo Descendido Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotQ <- ggplot(Datos130, aes(fill = `PILARES ERITEMATOSOS`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Pilares Eritematosos Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+ggpubr::ggarrange(plotN,plotO,plotP,plotQ)
+```
+
+- De este conjunto de gráficos se logra apreciar que las condiciones de lengua retraída y úvula alargada no influyen en el resultado de puntaje; sin embargo, condiciones como velo descendido y pilares eritematosos sí parecen ser significativos para explicar la variable respuesta.
+
+- Es importante tener en cuenta lo obtenido en el análisis descriptivo marginal respectivo a estas variables, pues allí se encontró una relación directa en las últimas dos variables, lo cuál podría indicar adecuado incluír un término de interaccion en el futuro modelo predictivo.
+
+### Maniobras de bostezo y fonema vs puntuación
+
+Ahora, para visualizar el resultado de las maniobras de bostezo y fonema para los pacientes que completaron el tratamiento en relación al resultado que reportan, se exponen los siguientes gráficos:
+
+```{r, fig.height=9}
+plotR <- ggplot(Datos130, aes(fill = `MAN BOSTEZO - VELO`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Bostezo (Velo) Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotS <- ggplot(Datos130, aes(fill = `MAN BOSTEZO - ÚVULA`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Bostezo (Úvula) Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotT <- ggplot(Datos130, aes(fill = `MAN. FONEMA - VELO`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Fonema (Velo) Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotU <- ggplot(Datos130, aes(fill = `MAN FONEMA - ÚVULA`, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Fonema (Úvula) Vs Puntuación") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+ggpubr::ggarrange(plotR,plotS,plotT,plotU,ncol=1,nrow=4)
+```
+
+- De este último grupo se nota que en cada gráfico todas las cajas se traslapan unas a otras, por lo cual se puede concluír que estas variables no ayudan a explicar el puntaje obtenido con cada paciente y que en la propuesta de un modelo es probable que no muestren significancia suficiente para ser incluídas en el mismo.
+
+### Variables relativas a comorbilidades
+
+```{r}
+plotV <- ggplot(Datos130, aes(fill = CO_Cardiovasculares, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Comorb Cardiovasculares\n Vs Puntuación",
+       fill = "Cardiovasculares") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotW <- ggplot(Datos130, aes(fill = CO_Endocrino_metabólicas, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Comorbilidades Endocrino-Metabólicas\n Vs Puntuación",
+       fill = "Endoc-Metab") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotX <- ggplot(Datos130, aes(fill = CO_Psiquiátricas, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Comorbilidades Psiquiátricas\n Vs Puntuación",
+       fill = "Psiquiátricas") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+plotY <- ggplot(Datos130, aes(fill = CO_Pulmonares, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Comorbilidades Pulmonares\n Vs Puntuación",
+       fill = "Pulmonares") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+ggpubr::ggarrange(plotV,plotW,plotX,plotY)
+```
+
+- En lo que respecta a las comorbilidades, se puede apreciar que existe una relación evidente entre la puntuación que dan los pacientes y si los mismos poseen algún tipo de comorbilidad psiquiátrica, donde aquellos que sí poseen alguna, perciben el tratamiento significativamente más efectivo. Esta relación también es plausible para aquellos pacientes con comorbilidades cardiovasculares, sin embargo en este punto la relación es más débil.
+
+### Mordida vs Respuesta
+
+Finalmente, en lo que respecta a la mordida relacionado a la efectividad del tratamiento, se tienen los siguientes gráficos:
+
+```{r, fig.height=9}
+plotZ <- ggplot(Datos130, aes(fill = Línea_media_desviada, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Línea Media Desviada\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotAA <- ggplot(Datos130, aes(fill = Mordida_borde_a_borde, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Mordida Borde a Borde\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotAB <- ggplot(Datos130, aes(fill = Mordida_abierta_anterior, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Mordida Abierta Anterior\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotAC <- ggplot(Datos130, aes(fill = Mordida_cruzada, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Mordida Cruzada\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotAD <- ggplot(Datos130, aes(fill = Maloclusión_clase_II, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Maloclusión Clase II\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+plotAE <- ggplot(Datos130, aes(fill = Maloclusión_clase_III, y = PuntGeneral)) +
+  geom_boxplot() +
+  labs(x = "", 
+       y = "Puntuación", 
+       title = "Maloclusión Clase III\n Vs Puntuación",
+       fill = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+
+ggpubr::ggarrange(plotZ,plotAA,plotAB,plotAC,plotAD,plotAE,ncol=2,nrow=3)
+```
+
+- Con estos últimos se puede apreciar que prácticamente en todas las condiciones de la mordida, las cajas se traslapan lo suficiente para descartar una relación significativa con la variable respueta; sin embargo, en condiciones como mordida borde a borde y maloclusión clase III se puede pensar en una relación débil plausible. En ese sentido sería interesante incluír este grupo de covariables al modelo como una interacción. 
 
