@@ -14,6 +14,7 @@ library(ggfortify)
 library(plotly)
 library(survival)
 library(ggpubr)
+library(caret)
 ```
 
 ```{r}
@@ -1409,3 +1410,287 @@ ggpubr::ggarrange(plotZ,plotAA,plotAB,plotAC,plotAD,plotAE,ncol=2,nrow=3)
 
 - Con estos últimos se puede apreciar que prácticamente en todas las condiciones de la mordida, las cajas se traslapan lo suficiente para descartar una relación significativa con la variable respueta; sin embargo, en condiciones como mordida borde a borde y maloclusión clase III se puede pensar en una relación débil plausible. En ese sentido sería interesante incluír este grupo de covariables al modelo como una interacción. 
 
+## Modelación de la variable de puntuación general
+
+Dado que la distribución de la variable respuesta es altamente no simétrica y con una forma desconocida, además de que algunas relaciones con las covariables son débiles, se considera adecuado optar por modelos predictivos robustos propios del machine learning (un enfoque analítico predictivo) que no posean supuestos distribucionales y donde prime el poder predictivo y la minimización del error en las predicciones.
+
+En ese sentido, se tendrán las siguientes consideraciones:
+
+- Para evaluar el desempeño del modelo se utilizará el RMSE (Raíz del error cuadrático medio).
+
+$$ 
+RMSE = \sqrt{\sum_{i=1}^n\frac{(y_i-\hat{y_i})^2}{n}}
+$$
+Con $n = 87$ el número de observaciones en la base de datos, $y_i$ el valor real de la respuesta y $\hat{y_i}$ el valor predicho por el modelo.
+
+- Con esta métrica se escogerá el modelo más preciso.
+
+- Para prevenir el overfitting (sobreajuste) se optará por usar el método cross validation partiendo el conjunto de datos en proporción 80% para entrenamiento y 20% para prueba. Si el RMSE de ambos conjuntos difiere en más de un 15% se considerará que el modelo sobreajusta los datos y será descartado.
+
+- Para el ajuste de los modelos se seleccionarán las variables que poseen una relación destacable con la respuesta: Edad, epworth basal, síntoma principal, T90, comorbilidades cardiovasculares y psiquiátricas, pilares eritematosos, mordida borde a borde y maloclusión clase III.
+
+```{r}
+modelformulas <- c("PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL`", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90`", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90` + EDAD", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90` + EDAD + Maloclusion_clase_III", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90` + EDAD + Maloclusion_clase_III + CO_Cardiovasculares", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90` + EDAD + Maloclusion_clase_III + CO_Cardiovasculares + `PILARES ERITEMATOSOS`", "PuntGeneral ~ `EPWORTH BASAL` + `SINTOMA PRINCIPAL` + CO_Psiquiatricas + `T 90` + EDAD + Maloclusion_clase_III + CO_Cardiovasculares + `PILARES ERITEMATOSOS` + Mordida_borde_a_borde")
+
+names(Datos130)[c(32,39)] <- c("CO_Psiquiatricas", "Maloclusion_clase_III")
+set.seed(1007221901)
+indexes <- sample(1:87, 70)
+train <- Datos130[indexes,]
+test <- Datos130[-indexes,]
+
+rmse <- function(model, nombremodelo){
+  predictionstrain <- predict(model, train)
+  predictionstest <- predict(model, test)
+  rmsetrain <- sqrt(mean((train$PuntGeneral-predictionstrain)^2))
+  rmsetest <- sqrt(mean((test$PuntGeneral-predictionstest)^2))
+  overtest <- abs(rmsetrain-rmsetest)/rmsetrain
+  
+  return(data.frame(Modelo = nombremodelo, RMSE_TRAIN = rmsetrain, RMSE_TEST = rmsetest,                              ErrorRelativo = round(overtest,2)))
+}
+```
+
+### Modelos a considerar
+
+Para cada tipo de modelo se van a considerar 8 conjuntos de regresores, donde cada fórmula se encuentra anidada en un modelo más específico (ver la siguiente tabla). Para la elección de las fórmulas se tuvieron en cuenta primero las variables que en el análisis descriptivo resultaron más significativas, sucesivamente se fueron agregando variables con las relaciones más plausibles en orden de significancia. 
+
+\newpage
+```{r}
+kable(data.frame(Modelo = 1:8, Fórmula = modelformulas), 
+      caption = "Fórmulas consideradas", align = c("l","r"),
+      booktab = T, escape = F)
+```
+
+Para cada propuesta de modelo, se ajustarán las ocho fórmulas y se elegirá al mejor modelo objetivamente, se considerará a ese como el mejor de su clase y se pondrá a competir con las demás propuestas.
+
+### Modelo de regresión lineal múltiple
+
+Se opta por esta clase de modelo como una base o referencia para propuestas futuras. En este caso se aborda este modelo desde una perpectiva analítica predictiva mas no inferencial, por lo cual se obvian los supuestos del modelo y no se realiza análisis de significancia y e inferencia sobre los demás coeficientes.
+
+Los resultados son los siguientes
+
+```{r}
+lmresults <- data.frame()
+
+for (i in 1:8){
+  model <- lm(as.formula(modelformulas[i]), data = train)
+  result <- rmse(model, paste("Fórmula", i))
+  lmresults <- rbind(lmresults, result)
+}
+
+
+kable(lmresults, 
+      caption = "Resultados Modelo Lineal Múltiple", align = "c",
+      booktab = T, escape = F)
+```
+
+De este resultado es notable que ninguno de los ocho modelos propuestos con regresión lineal múltiple sobreajusta los datos, es decir, el modelo tiene un buen poder predictivo con datos que no conoce y posee la capacidad de generalizar las predicciones. El mejor modelo encontrado es el que contiene todas las variables significativas, con un error medio de 0.68 en el conjunto de datos de entrenamiento, y un error medio de 0.63 en el conjunto de datos de prueba.
+
+### K-Nearest Neighbors Regression
+
+El algoritmo de K vecinos más cercanos para regresión es la extensión del algoritmo de KNN pero en este caso para problemas predictivos con respuesta continua. El algoritmo puede explicarse de manera intuitiva:
+
+- Considere una nube de puntos con los valores de un conjunto de regresores.
+- Considere una nueva observación.
+- Ubique esa observación en su punto respectivo de la nube de puntos.
+- Tome los valores de los k vecinos más cercanos a esa nueva observación.
+- Promedie dichos valores y esa será la predicción de la respuesta para la nueva observación.
+
+En este caso particular, el hiperparámetro k se seleccionará mediante el procedimiento LOOCV (leave one out cross validation) sobre el conjunto de entrenamiento. Este procedimiento se hará por cada fórmula.
+
+El resultado se expone como sigue:
+
+```{r}
+trctrl <- trainControl(method="LOOCV")
+grid <- expand.grid(k = seq(3,15,3))
+knnresults <- data.frame()
+kvals <- c()
+for (i in 1:8){
+  model <- train(as.formula(modelformulas[i]), data = train, method = "knn",
+                 trControl = trctrl, tuneGrid = grid)
+  result <- rmse(model, paste("Fórmula", i))
+  knnresults <- rbind(knnresults, result)
+  kvals[i] <- as.numeric(model$bestTune)
+}
+
+kable(cbind(knnresults, data.frame(BestK = kvals)), 
+      caption = "Resultados Modelo KNN-REG", align = "c",
+      booktab = T, escape = F)
+```
+
+En este caso la columna "BestK" hace referencia al hiperparámetro K que mejor desempeño predictivo muestra para cada fórmula.
+
+De este último resultado se alcanza a apreciar que en ningún caso el modelo knn-reg sobreajusta los datos y se muestra con un poder predictivo destacable. Sin embargo, este modelo predictivo no logra mejorar los resultados obtenidos por el modelo lineal tradicional en train y test.
+
+### Bagging: Random Forest
+
+Ramdom Forest o bosque aleatorio es un algoritmo que extiende el uso de los árboles de decisión. 
+
+El principio de esta clase de modelo consiste en ajustar una cantidad n determinada de árboles de decisión, luego se realiza la predicción con cada árbol y se escoge la predicción por mayoría. El funcionamiento simplificado se ilustra así
+
+```{r,out.width="50%", fig.cap="Idea de Random Forest", fig.align='center'}
+knitr::include_graphics("rf.png")
+```
+
+```{r}
+rfresults <- data.frame()
+for (i in 1:8){
+  model <- train(as.formula(modelformulas[i]), data = train, method = "rf")
+  result <- rmse(model, paste("Fórmula", i))
+  rfresults <- rbind(rfresults, result)
+}
+
+kable(rfresults, 
+      caption = "Resultados Modelo Random Forest", align = "c",
+      booktab = T, escape = F)
+```
+Antes de concluir se debe conocer que el número de árboles empleado es, por defecto, 500.
+
+A partir de este resultado se puede observar que el error relativo del modelo random forest con el primer conjunto de variables independientes es del 15% aproximadamente, por lo cual puede pensarse en overfitting; sin embargo, esto no es así porque el modelo está prediciendo mejor en el conjunto de prueba que en el de entrenamiento, por lo cuál no incurre en overfitting. Sin embargo, se debe resaltar que el modelo respectivo a la fórmula 6 reporta un excelente desempeño tanto en train como en test, sin incurrir en overfitting, por lo cuál este es un gran candidato a modelo final.
+
+### Boosting: Stochastic Gradient Boosting
+
+El boosting como el bagging es un modelo de ensamble, es decir, se compone por varios modelos más básicos que crean un modelo "fuerte" con altas capacidades predictivas. En el método anterior (Random Forest) se vió que este es, de manera resumida, el ensamble en paralelo de varios árboles de decisión básicos con los cuales se puede obtener mediante votación por mayoría, una predicción bastante certera. En este caso también se ensamblan varios árboles de decisión o "modelos débiles" pero en forma secuencial, de manera tal que el siguiente arbol ajuste lo que el anterior no pudo. 
+
+Dicho esto, los resultados que se obtienen con el modelo Stochastic Gradient Boosting son
+
+```{r}
+nnetresults <- data.frame()
+for (i in 1:8){
+  capture.output(model <- train(as.formula(modelformulas[i]), data = train, method = "gbm"))
+  result <- rmse(model, paste("Fórmula", i))
+  nnetresults <- rbind(nnetresults, result)
+}
+
+kable(nnetresults, 
+      caption = "Resultados Modelo Stochastic Gradient Boosting", align = "c",
+      booktab = T, escape = F)
+```
+
+Dada la complejidad de este algoritmo, se dió vía libre para que el algoritmo computacional desarrollado en la librería caret hiciera el ajuste correspondiente de los hiperparámetros y así evitar errores e inestabilidades numéricas. 
+
+Si bien el modelo boosting por descenso del gradiente estocástico no sobreajusta los datos en ningún conjunto de variables independientes, los resultados obtenidos son cuantitativamente inferiores a los obtenidos por el modelo de Random Forest, por lo cuál podría considerarse a priori que este tipo de modelo o bien no es adecuado para nuestro conjunto de datos o tal vez requiere de un desarrollo más extenso.
+
+### Comparación de los modelos obtenidos
+
+Una vez planteadas las cuatro propuestas de modelos (Regresión lineal múltiple, KNN-REG, Random Forest y Stochastic Gradient Boosting), se selecciona la fórmula que menor rmse reporte en cada conjunto de datos (entrenamiento y prueba) para cada uno de los mismos. En ese caso, se obtienen los "finalistas"
+
+```{r}
+bestmodels <- data.frame(Modelo = c("Modelo Lineal", "Knn-Reg", 
+                                    "Random Forest", "Stoch Grad Boost"),
+                         Formula = c(lmresults[8,1],knnresults[1,1],
+                                     rfresults[6,1],nnetresults[1,1]),
+                         RMSE_TRAIN = c(lmresults[8,2],knnresults[1,2],
+                                        rfresults[6,2],nnetresults[1,2]),
+                         RMSE_TEST = c(lmresults[8,3],knnresults[1,3],
+                                       rfresults[6,3],nnetresults[1,3]),
+                         ErrorRelativo = c(lmresults[8,4],knnresults[1,4],
+                                           rfresults[6,4],nnetresults[1,4]))
+
+kable(bestmodels, 
+      caption = "Mejores modelos de cada tipo", align = "c",
+      booktab = T, escape = F, col.names = c("Modelo", "Fórmula", "Rmse Train", 
+                                             "Rmse Test", "Error Relativo"))
+```
+
+De esta tabla se puede apreciar que tanto en train como en test, el modelo que más se destaca en términos de rmse es el modelo Random Forest ¿Pero cómo se interpreta el rmse?: En promedio el modelo random forest se equivoca en 0.62 puntos de efectividad/satisfacción del tratamiento, se espera que para un nuevo paciente que ingresa al tratamiento, el modelo acierte su satisfacción futura con 0.62 unidades de error.
+
+Veamos el resultado anterior de manera gráfica
+
+```{r}
+bestmodelsgraph <- data.frame(RMSE = c(lmresults[8,2],lmresults[8,3],
+                                       knnresults[1,2],knnresults[1,3],
+                                       rfresults[6,2],rfresults[6,3],
+                                       nnetresults[1,2],nnetresults[1,3]),
+                              MODELO = c("LM","LM","KNN","KNN","RF","RF","SGB","SGB"),
+                              TIPO = rep(c("TRAIN","TEST"),4))
+
+ggplot(bestmodelsgraph, aes(x = MODELO, y = RMSE, group = TIPO)) +
+  geom_line(aes(color=TIPO)) + geom_point(aes(color = TIPO), size = 3) + 
+  labs(x = "MODELO", 
+       y = "RMSE", 
+       title = "RMSE TRAIN Y TEST",
+       color = "") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+```
+
+Como es notable en el gráfico, tanto en el conjunto de datos de entrenamiento como en el conjunto de datos de prueba, el modelo "RF" (Random Forest) con la fórmula 6 (ver tabla 7) es el que mejores resultados demuestra en términos de error, por lo cuál este es el modelo final para explicar la respuesta "PuntGeneral".
+
+### Anotaciones sobre el resultado
+
+Como se comentó en la sección anterior, el mejor modelo obtenido mediante la metodología propuesta es un modelo propio del paradigma bagging, conocido como modelo Random Forest o modelo de bosques aleatorios. En este caso el modelo se entrenó con 500 árboles aleatorios usando el principio exlicado en la respectiva sección. Este modelo ajustó mejor los datos usando la fórmula 6 que se muestra a continuación: 
+
+
+$$
+PuntGeneral \sim EPWORTH BASAL\ +\ SINTOMA PRINCIPAL\ +\ COPsiquiatricas\ +\ T 90
+$$
+$$
++\ EDAD\ +\ MaloclusionClaseIII\ +\ COCardiovasculares
+$$
+Es decir, las covariables que resultaron al menos mínimamente significativas en el análisis descriptivo que mejor explican la puntuación que dan los pacientes al tratamiento son las 7 comprendidas en la anterior fórmula y en ese sentido, serán las que mejor determinen la percepción de efectividad del mismo.
+
+### Visualizando el ajuste
+
+Para visualizar el buen ajuste del modelo obtenido se plantea el siguiente gráfico
+
+```{r}
+finalmod <- train(as.formula(modelformulas[6]), data = train, method = "rf")
+```
+
+```{r}
+allpredictions <- predict(finalmod,Datos130)
+finalmoddata <- data.frame(Observacion = 1:nrow(Datos130),
+                           Valor = c(Datos130$PuntGeneral, allpredictions),
+                           Tipo = c(rep("Real",nrow(Datos130)), rep("Predicho",nrow(Datos130))))
+
+ggplot(finalmoddata, aes(x = Observacion, y = Valor, color = Tipo)) +
+  geom_line(aes(color=Tipo)) + geom_point(aes(color = Tipo), size = 2)+ 
+  labs(x = "Observación", 
+       y = "Puntuación", 
+       title = "Valores Reales vs Ajustados",
+       color = "Tipo") +
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5), 
+        axis.title.x = element_text(face="bold",  size = 12),
+        axis.title.y = element_text(face="bold",  size = 12),
+        legend.title = element_text(face="bold", size = 10))
+```
+
+En este gráfico se puede observar que aunque el modelo parece conservador, realmente las desviaciones corresponden a lo reportado según el RMSE, el cuál es relativamente bajo según la desviación natural de los datos.
+
+Es muy destacable de este modelo que logra capturar fielmente la tendencia de los pacientes, es decir, sube cuando debe subir y baja cuando debe bajar, lo que indica que el modelo está replicando el comportamiento natural de los datos y posee la capacidad de perfilar los pacientes de acuerdo a las variables involucradas en el mismo. 
+
+### Resultado final: Perfilamiento de los pacientes
+
+Como es de interés primario, ahora el análisis se hará de acuerdo a lo que el modelo dicte como el perfil más exitoso en el tratamiento y lo que prediga como el perfil de paciente que percibe peores resultados. Para esa causa se hará una predicción para todas las combinaciones posibles de las variables escogidas en la fórmula 6 (ver tabla 7) que se encuentren en la base de datos. Posteriormente se reportarán los mejores y peores puntajes de acuerdo al modelo obtenido y se harán las conclusiones respectivas. El resultados se muestra en la siguiete tabla.
+
+```{r}
+perfdata <- Datos130[,c(6,10,32,16,3,39,30)] %>%
+  mutate("Puntaje" = allpredictions) %>%
+  arrange(desc(Puntaje))
+perfdatnames <- c("EPWORTH BASAL", "SÍNTOMA PRINCIPAL", "PSIQ", "T90","EDAD",                "MALOCLIII", "CARDIO", "PUNTAJE")
+kable(perfdata[c(1:5,83:87),], 
+      caption = "Perfiles de los pacientes", align = "c",
+      booktabs = T, escape = F, digits = 2, col.names = perfdatnames)
+```
+
+- En esta tabla se ilustran los perfiles de los cinco pacientes que más éxito reportan según el modelo y los cinco perfiles de pacientes que menos satisfacción/efectividad pueden tener en el tratamiento. 
+
+- En primera instancia se puede observar que los pacientes más exitosos suelen tener un puntaje de somnolencia bajo en comparación a los menos exitosos.
+
+- En segundo lugar, se puede notar que un paciente con dificultad para mantener el sueño suele percibir el tratamiento más efectivo. En contraparte se aprecia que los roncadores son un perfil típico de un paciente que no suele considerarse satisfecho con el tratamiento.
+
+- Como se vió en el análisis descriptivo, los pacientes psiquiátricos suelen percibir el tratamiento más exitoso que los que no poseen comorbilidades psiquiátricas. Esto es apreciable porque de los cinco perfiles con el puntaje más alto, 3 de ellos involucran el hecho de tener una comorbilidad psiquiátrica.
+
+- En lo que respecta a la variable T90, se puede notar que un paciente con valores muy bajos puede considerar mejor el tratamiento, mientras que aquellos que poseen valores medios/altos en este aspecto calificarán peor al mismo.
+
+- Nótese que los pacientes más mayores suelen considerar al tratamiento como más satisfactorio/efectivo, lo cuál implica directamente que los pacientes relativamente jóvenes suelen considerar menos exitoso el tratamiento.
+
+- En la variable maloclusión clase III se aprecia que tanto los perfiles más exitosos como los menos exitosos no poseen esta condición, sin embargo el análisis descriptivo dicta que aquellos que poseen esta condición suelen calificar menos satisfactorio el tratamiento. Si el modelo indica que esta variable mejora las predicciones, entonces esta consideración es totalmente válida aún no siendo apreciable en la tabla.
+
+- De manera similar ocurre con la variable que indica alguna clase de comorbilidad cardiovascular, si bien no es tan apreciable en la tabla, sí se alcanza a notar que aquellos pacientes que sí tienen comorbilidades cardiovasculares suelen calificar mejor al tratamiento.
+
+- Finalmente, se concluye que se deben "gatillar" o "motivar" a los pacientes con los perfiles mencionados: Epworth basal alto, síntomas relacionados al ronquido, sin comorbilidades psiquiátricas, con valores T90 relativamente altos, jóvenes, que posean maloclusión clase III y que no posean comorbilidades cardiovasculares. Mientras que de aquellos con un epworth basal bajo, con síntomas relacionados a la dificultad para mantener el sueño, con comorbilidades psiquiátricas, con valores T90 bajos, en edades mayores, sin maloclusión clase III y con comorbilidades cardiovasculares se puede esperar de antemano un resultado efectivo/satisfactorio del tratamiento miofuncional orofacial. 
